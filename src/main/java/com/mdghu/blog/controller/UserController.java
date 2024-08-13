@@ -1,13 +1,15 @@
 package com.mdghu.blog.controller;
 
 import java.util.List;
+
+import com.mdghu.blog.entity.ConfirmationMail;
 import com.mdghu.blog.entity.User;
 import com.mdghu.blog.model.*;
+import com.mdghu.blog.service.MailService;
 import com.mdghu.blog.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -17,6 +19,8 @@ public class UserController {
     @Autowired
     private UserService userService; // Inject the service layer
 
+    @Autowired
+    private MailService mailService;
     @PostMapping("/create")
     public ResponseEntity<UserModel> createUser(@RequestBody User user) {
         try {
@@ -66,6 +70,27 @@ public class UserController {
         try{
             PostModel postModel = userService.postBlog(post);
             return new ResponseEntity<>(postModel, HttpStatus.CREATED);
+        }catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);  // Return error response
+        }
+    }
+
+    @PostMapping("/user/confirmation")
+    public ResponseEntity<UserModel> confirmUser(@RequestBody ConfirmationMail confirmationMail) {
+        try{
+            UserModel model = userService.verifyTheOtp(confirmationMail);
+            return new ResponseEntity<>(model, HttpStatus.CREATED);
+        }catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);  // Return error response
+        }
+    }
+    @PostMapping("/user/confirmation/resend")
+    public ResponseEntity<String> reSendOtp(@RequestBody ConfirmationMail confirmationMail) {
+        try{
+            String message = userService.reSendOtp(confirmationMail);
+            return new ResponseEntity<>(message, HttpStatus.CREATED);
         }catch (Exception e) {
             e.printStackTrace();
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);  // Return error response

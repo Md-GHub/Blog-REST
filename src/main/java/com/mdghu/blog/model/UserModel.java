@@ -6,7 +6,6 @@ public class UserModel {
     private String email;
     private String userName;
     private String mobile;
-
     public UserModel() {
     }
 

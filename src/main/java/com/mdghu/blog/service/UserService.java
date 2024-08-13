@@ -1,9 +1,11 @@
 package com.mdghu.blog.service;
 
+import com.mdghu.blog.entity.ConfirmationMail;
 import com.mdghu.blog.entity.Post;
 import com.mdghu.blog.entity.Role;
 import com.mdghu.blog.entity.User;
 import com.mdghu.blog.model.*;
+import com.mdghu.blog.repository.ConfirmationMailRepo;
 import com.mdghu.blog.repository.PostRepo;
 import com.mdghu.blog.repository.RoleRepo;
 import com.mdghu.blog.repository.UserRepo;
@@ -11,10 +13,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.ListIterator;
+import java.util.*;
 
 @Service
 public class UserService {
@@ -27,11 +26,22 @@ public class UserService {
     @Autowired
     private PostRepo postRepo;
 
+    @Autowired
+    private ConfirmationMailRepo confirmationMailRepo;
+
+    @Autowired
+    private MailService mailService;
+
     public UserModel  saveUser(User user) {
         Role defaultRole = roleRepo.findById(2L).get();
         user.setRole(defaultRole);
         user.setDateOfJoin(new Date());
         User userValue = userRepo.save(user);
+        String mail = user.getEmail();
+        String otp = generateOTP(6);
+        ConfirmationMail newMail =  new ConfirmationMail(mail,otp);
+        confirmationMailRepo.save(newMail);
+        sendConfirmationMail(mail,otp);
         return convertToUserModel(userValue);
     }
     public UserModel loginUser(LoginModel loginModel) {
@@ -100,7 +110,7 @@ public class UserService {
         if(!userRepo.existsByEmail(newPassword.getEmail())){
             throw new IllegalArgumentException("User not found");
         }
-        userRepo.updatePassword(newPassword.getEmail(),newPassword.getNewPassword());
+        userRepo.updatePassword(newPassword.getEmail(),newPassword.getNewPassword()); // mail service balance !
         return "Password changed successfully";
     }
 
@@ -130,6 +140,50 @@ public class UserService {
         postRepo.save(post);
         PostModel postModel = convertToPostModel(post);
         return postModel;
+    }
+    @Transactional
+    public UserModel verifyTheOtp(ConfirmationMail confirmationMail) {
+        if (confirmationMail == null || confirmationMail.getOtp() == null || confirmationMail.getOtp().isEmpty() || confirmationMail.getMail() == null) {
+            throw new IllegalArgumentException("ConfirmationMail and its fields must not be null or empty");
+        }
+
+        String mail = confirmationMail.getMail();
+        String otp = confirmationMail.getOtp();
+
+        // Fetch the user by email
+        User user = userRepo.findByEmail(mail);
+        if (user == null) {
+            throw new IllegalArgumentException("User not found for the provided email");
+        }
+
+        // Check if the OTP is valid
+        Long count = confirmationMailRepo.check(mail, otp);
+        if (count != null && count > 0) {
+            // Delete the confirmation record since the OTP is correct
+            confirmationMailRepo.deleteByMail(mail);
+
+            // Mark the user as verified
+            user.setVerified(true);
+
+            // Save the updated user entity
+            userRepo.save(user);
+        } else {
+            throw new IllegalArgumentException("Invalid OTP");
+        }
+
+        return convertToUserModel(user);
+    }
+
+    public String reSendOtp(ConfirmationMail confirmationMail) {
+        if(confirmationMail == null || confirmationMail.getMail() == null){
+            throw new IllegalArgumentException("ConfirmationMail and its fields must not be null or empty");
+        }
+        String mail = confirmationMail.getMail();
+        String otp = generateOTP(6);
+        ConfirmationMail newMail =  new ConfirmationMail(mail,otp);
+        confirmationMailRepo.save(newMail);
+        sendConfirmationMail(mail,otp);
+        return "OTP Send successfully";
     }
 
     private PostModel convertToPostModel(Post post) {
@@ -166,6 +220,21 @@ public class UserService {
         return userModel;
     }
 
+    private String generateOTP(int length) {
+        String numbers = "0123456789";
+        Random random = new Random();
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            int index = random.nextInt(numbers.length());
+            sb.append(numbers.charAt(index));
+        }
+        return sb.toString();
+
+    }
+
+    private void sendConfirmationMail(String mail , String otp){
+        mailService.sendConfirmationMail(mail,otp);
+    }
 
 
 }

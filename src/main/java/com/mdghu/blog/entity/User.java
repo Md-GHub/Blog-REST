@@ -39,6 +39,9 @@ public class User {
     @Temporal(TemporalType.TIMESTAMP)
     private Date dateOfJoin;
 
+    private boolean verified = false;
+
+
     public User() {}
 
     public User(String firstName, String lastName, String email, String userName, String password, String mobile, Role role, Date dateOfBirth, Date dateOfJoin) {
@@ -51,6 +54,14 @@ public class User {
         this.role = role;
         this.dateOfBirth = dateOfBirth;
         this.dateOfJoin = dateOfJoin;
+    }
+
+    public boolean isVerified() {
+        return verified;
+    }
+
+    public void setVerified(boolean verified) {
+        this.verified = verified;
     }
 
     public Long getUserId() {
